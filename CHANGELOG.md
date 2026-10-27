@@ -50,6 +50,21 @@
   (`__pycache__`, coverage, build output) are excluded from the agent's diff in later rounds.
 - Checks run with a fresh `PYTHONPYCACHEPREFIX`, so Python never runs stale bytecode after a
   same-size edit made within one second (Python's mtime+size `.pyc` check misses those).
+- Found by a live Codex smoke test: `run` crashed when printing its result if agent text held
+  non-cp1252 characters (e.g. an emoji) and stdout was redirected on Windows, so the run's result
+  was lost. Stdout JSON is now ASCII-escaped, and human-readable text never raises on encoding.
+- Claude API/auth failures (`is_error` with `subtype: "success"`) now report the CLI's reason
+  (e.g. an expired OAuth session) instead of a generic "Claude execution failed".
+- `python -m contextweft` works.
+
+### Verified live (Codex CLI 0.153.3)
+- `exec --json` output parsing, `exec resume <thread_id> --json -c sandbox_mode=...` keeping the
+  same thread, and per-turn (not cumulative) usage after a resume. A full gate → failing check →
+  resume repair → verified loop ran end to end; the repair round's input was 89% cache hits.
+- Codex has no lean mode: `--ignore-user-config` saves ~17% of a minimal request but drops
+  settings runs depend on (`[windows] sandbox = "elevated"`), after which every edit is blocked.
+- Codex hooks in `~/.codex` still run and can write files into the target repo; they show up as
+  changed files.
 
 ## 0.1.0 (prototype)
 

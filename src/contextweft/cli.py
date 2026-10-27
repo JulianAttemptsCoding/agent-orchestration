@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import subprocess
@@ -244,6 +245,9 @@ def read_tasks(path: Path) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(errors="backslashreplace")  # human text must never crash the run
     args = parser().parse_args(argv)
     code = 0
     try:
@@ -286,7 +290,8 @@ def main(argv: list[str] | None = None) -> int:
                     write_record(args.record, sanitize_record(result, args.case_id))
                 if not args.dry_run and not result["success"]:
                     code = 1
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        # ASCII-escaped: agent text can hold emoji, and a redirected Windows stdout is cp1252.
+        print(json.dumps(result, indent=2))
         return code
     except (ValueError, OSError, ProviderError, gitsnap.GitError) as exc:
         print(f"contextweft: {exc}", file=sys.stderr)

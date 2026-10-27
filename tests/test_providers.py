@@ -99,6 +99,15 @@ def test_claude_max_turns_and_session():
     assert not r.success and "max-turns" in r.error and r.session_id == "s"
 
 
+def test_claude_api_error_reason_surfaced():
+    # Real CLI output on expired auth: subtype "success" but is_error, reason in `result`.
+    r = parse_claude_output(json.dumps({"subtype": "success", "is_error": True, "terminal_reason": "api_error",
+                                        "result": "Failed to authenticate: OAuth session expired",
+                                        "usage": {"input_tokens": 0, "output_tokens": 0}}),
+                            elapsed=1, returncode=1)
+    assert not r.success and "OAuth session expired" in r.error
+
+
 def test_claude_bool_usage_rejected():
     r = parse_claude_output(json.dumps({"result": "ok", "usage": {"input_tokens": True, "output_tokens": 3}}),
                             elapsed=1, returncode=0)
@@ -122,6 +131,7 @@ def test_build_command_claude_primary_review_resume():
 
 
 def test_build_command_codex():
+    # Never --ignore-user-config: it drops the Windows sandbox mode and blocks all edits (live smoke test).
     assert build_command("codex", AgentOptions()) == ["codex", "exec", "--json", "--sandbox", "workspace-write", "-"]
     rv = build_command("codex", AgentOptions(review=True, model="o4"))
     assert rv[rv.index("--sandbox") + 1] == "read-only" and "--skip-git-repo-check" in rv and rv[-1] == "-"

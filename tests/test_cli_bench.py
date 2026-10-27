@@ -1,6 +1,9 @@
 """CLI commands and the A/B benchmark harness (fake agents only)."""
 import io
 import json
+import os
+import subprocess
+import sys
 
 import pytest
 
@@ -121,3 +124,13 @@ def test_bench_end_to_end(tmp_path, agents, capsys):
     assert all(c["cwd"] != str(repo) for c in agents.calls())  # fresh clones only
     assert (repo / "src/calc.py").read_text() == BUGGY["src/calc.py"]
     assert main(["bench", str(cases), "--repo", str(repo), "--out", str(out), "--provider", "codex"]) == 2
+
+
+def test_cli_output_survives_non_utf8_stdout(buggy_repo, agents):
+    # Live smoke test regression: an emoji in agent text crashed `run` on a redirected cp1252 stdout.
+    agents.scenario([{"write": {"src/calc.py": FIXED_CALC}, "text": "Fixed \U0001f331"}])
+    cp = subprocess.run([sys.executable, "-m", "contextweft", "run", "fix add", "--repo", str(buggy_repo),
+                         "--offline", "--provider", "codex", "--timeout", "60"],
+                        capture_output=True, env={**os.environ, "PYTHONIOENCODING": "cp1252"}, check=False)
+    assert cp.returncode == 0, cp.stderr.decode("cp1252", "replace")
+    assert json.loads(cp.stdout.decode("ascii"))["status"] == "verified"

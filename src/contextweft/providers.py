@@ -93,7 +93,11 @@ def parse_claude_output(text: str, *, elapsed: float, returncode: int) -> AgentR
         subtype = data.get("subtype")
         error = {"error_max_turns": "Claude hit --max-turns",
                  "error_max_budget_usd": "Claude hit --max-budget-usd"}.get(
-            subtype if isinstance(subtype, str) else "", "Claude execution failed")
+            subtype if isinstance(subtype, str) else "", "")
+        if not error:
+            # API/auth failures arrive as is_error with the reason in `result` (subtype may say "success").
+            reason = redact(result.strip())[:200] if data.get("is_error") and isinstance(result, str) else ""
+            error = f"Claude execution failed: {reason}" if reason else "Claude execution failed"
     return AgentRun(
         "claude", result if isinstance(result, str) else "", total_in, total_out, elapsed, ok, error,
         cached, float(price) if isinstance(price, (int, float)) and not isinstance(price, bool) and price >= 0 else None,
@@ -204,6 +208,9 @@ def build_command(name: str, opts: AgentOptions) -> list[str]:
             args = ["codex", "exec", "--json", "--sandbox", sandbox]
         if opts.review:
             args.append("--skip-git-repo-check")  # reviewers run in a disposable export
+        # No lean flag for Codex: --ignore-user-config saves ~17% of a minimal request (measured)
+        # but also drops settings runs depend on, e.g. `[windows] sandbox = "elevated"`, without
+        # which the Windows sandbox blocks every read and edit. `-c mcp_servers={}` saves nothing.
         if opts.model:
             args += ["-m", opts.model]
         return args + ["-"]
