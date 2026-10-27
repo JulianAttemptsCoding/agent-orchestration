@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+.env.*
+!.env.example
+build/
+dist/
+.pytest_cache/
+.coverage
+.contextweft/
+*.log
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+
+# local tooling
+.mypy_cache/
+.ruff_cache/
+results/

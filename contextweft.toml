@@ -1,0 +1,15 @@
+# ContextWeft's own settings (dogfooding).
+
+[checks]
+test = "python -m pytest -q"
+lint = "python -m ruff check src tests"
+
+[quality]
+gate = "block"
+repair_rounds = 2
+# The rule definitions and test fixtures contain slop patterns on purpose.
+# Deletion, assertion-count and scope rules still apply to these files.
+exclude_paths = ["src/contextweft/quality.py", "tests/**"]
+
+[agent]
+lean = true

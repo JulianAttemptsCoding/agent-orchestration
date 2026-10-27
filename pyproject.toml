@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "contextweft-orchestrator"
+version = "0.2.0"
+description = "Token-aware, quality-gated orchestration for Claude Code, Codex CLI and custom coding agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "ContextWeft contributors"}]
+dependencies = ["tomli>=2.0; python_version < '3.11'"]
+keywords = ["claude-code", "codex", "subq", "multi-agent", "token-optimization", "code-quality"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/JulianAttemptsCoding/agent-orchestration"
+Issues = "https://github.com/JulianAttemptsCoding/agent-orchestration/issues"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "build>=1", "ruff>=0.6", "mypy>=1.10"]
+
+[project.scripts]
+contextweft = "contextweft.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+contextweft = ["SKILL.md", "py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP", "S", "SIM"]
+ignore = ["S603", "S607", "S101", "SIM108", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B", "E501", "SIM117"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/contextweft"]
+ignore_missing_imports = true
+warn_unused_ignores = true

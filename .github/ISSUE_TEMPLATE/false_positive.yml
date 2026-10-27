@@ -1,0 +1,23 @@
+name: Gate false positive / missed slop
+description: A quality-gate rule fired on good code, or missed a real problem
+title: "[Gate] "
+labels: [quality-gate]
+body:
+  - type: input
+    id: rule
+    attributes:
+      label: Rule name (e.g. swallowed-error) or "missed"
+    validations:
+      required: true
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Minimal diff snippet
+      description: Sanitized. No proprietary code or secrets.
+      render: diff
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour

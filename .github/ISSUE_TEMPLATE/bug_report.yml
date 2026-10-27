@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a reproducible behavior without sharing credentials or proprietary code
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Problem
+      description: Describe expected and actual behavior. Redact secrets, paths, prompts and private source.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Provide minimal commands and a sanitized fixture.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: ContextWeft 0.2.0, Python 3.13, OS, Claude/Codex CLI version

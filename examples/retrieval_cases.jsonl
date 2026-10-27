@@ -1,0 +1,3 @@
+{"id":"cli", "task":"Fix command line parsing errors", "gold_files":["src/contextweft/cli.py"]}
+{"id":"providers", "task":"Handle invalid JSON in Codex provider", "gold_files":["src/contextweft/providers.py"]}
+{"id":"subq", "task":"Validate SubQ decision answers", "gold_files":["src/contextweft/subq.py"]}
