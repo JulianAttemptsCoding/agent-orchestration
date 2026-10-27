@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -83,12 +84,33 @@ def tree_of(repo: Path, ref: str) -> str:
     return empty.stdout.strip()
 
 
-def diff(repo: Path, before: str, after: str, *, context: int = 0) -> str:
-    return _git(repo, "diff", "--no-color", "--no-ext-diff", f"--unified={context}", "-M",
+def diff(repo: Path, before: str, after: str, *, context: int = 0,
+         skip: frozenset[str] = frozenset()) -> str:
+    text = _git(repo, "diff", "--no-color", "--no-ext-diff", f"--unified={context}", "-M",
                 before, after).stdout
+    return _drop_files(text, skip) if skip else text
 
 
-def changed_files(repo: Path, before: str, after: str) -> list[tuple[str, str]]:
+def _block_path(block: str) -> str:
+    """New path of one ``diff --git`` block (old path for deletions)."""
+    old = ""
+    for line in block.splitlines():
+        if line.startswith("@@"):
+            break
+        if line.startswith("--- ") and line != "--- /dev/null":
+            old = line[4:].rstrip("\t").removeprefix("a/")
+        elif line.startswith("+++ ") and line != "+++ /dev/null":
+            return line[4:].rstrip("\t").removeprefix("b/")
+    return old
+
+
+def _drop_files(text: str, skip: frozenset[str]) -> str:
+    blocks = re.split(r"(?m)^(?=diff --git )", text)
+    return "".join(b for b in blocks if not b.startswith("diff --git ") or _block_path(b) not in skip)
+
+
+def changed_files(repo: Path, before: str, after: str,
+                  skip: frozenset[str] = frozenset()) -> list[tuple[str, str]]:
     """[(status letter, path)] where status is A/M/D/R (rename reports new path)."""
     out = _git(repo, "diff", "--name-status", "-z", "-M", before, after).stdout
     parts = [p for p in out.split("\0") if p]
@@ -102,7 +124,7 @@ def changed_files(repo: Path, before: str, after: str) -> list[tuple[str, str]]:
         else:
             result.append((status, parts[i + 1]))
             i += 2
-    return result
+    return [r for r in result if r[1] not in skip]
 
 
 def show_file(repo: Path, tree: str, path: str) -> str | None:

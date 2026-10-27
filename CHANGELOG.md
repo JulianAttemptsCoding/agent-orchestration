@@ -46,6 +46,10 @@
   regression test.
 - Removed the duplicate, unused `evaluation.compare` and its hard-coded metrics.
 - `SUBQ_API_KEY` is no longer inherited by agent processes.
+- The gate snapshot is now taken *before* checks run, and files written by the checks themselves
+  (`__pycache__`, coverage, build output) are excluded from the agent's diff in later rounds.
+- Checks run with a fresh `PYTHONPYCACHEPREFIX`, so Python never runs stale bytecode after a
+  same-size edit made within one second (Python's mtime+size `.pyc` check misses those).
 
 ## 0.1.0 (prototype)
 

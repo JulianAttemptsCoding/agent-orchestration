@@ -171,7 +171,7 @@ def test_history_flows_into_next_prompt(buggy_repo, agents):
     run(buggy_repo)
     nxt = plan_task("add subtract", buggy_repo, provider="codex", offline=True)
     assert "Recent verified changes" in nxt.prompt and "sign error" in nxt.prompt
-    assert git(buggy_repo, "status", "--porcelain").strip() == "M src/calc.py"  # .contextweft self-ignored
+    assert ".contextweft" not in git(buggy_repo, "status", "--porcelain")  # self-ignored
 
 
 def test_batch_stops_on_failure(buggy_repo, agents):
@@ -193,6 +193,15 @@ def test_gate_off_mode(buggy_repo, agents):
     out = run(buggy_repo, settings=RunSettings(timeout=60, gate="off"))
     # Skipped test "passes" pytest; with the gate off nothing catches it: documents why gate defaults on.
     assert out["gate"] is None and out["success"]
+
+
+def test_check_artifacts_are_not_agent_changes(buggy_repo, agents, monkeypatch):
+    # Bytecode written by the test run must not show up as the agent's diff (CI regression).
+    monkeypatch.delenv("PYTHONDONTWRITEBYTECODE", raising=False)
+    agents.scenario([{"text": "x"}, {"write": {"src/calc.py": FIXED_CALC}}])
+    out = run(buggy_repo)
+    assert out["status"] == "verified" and out["changed_files"] == ["src/calc.py"]
+    assert not any("__pycache__" in f["path"] for f in out["gate"]["findings"])
 
 
 def test_new_repo_without_commits(tmp_path, agents):

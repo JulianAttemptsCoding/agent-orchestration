@@ -191,25 +191,33 @@ class _Verification:
     before: str | None
     after: str | None
     note: str = ""
+    # Files written by the checks themselves (__pycache__, coverage, build output): not agent work.
+    artifacts: frozenset[str] = frozenset()
 
     def passed(self, gate_mode: str) -> bool:
         gate_ok = self.gate is None or gate_mode != "block" or not self.gate.blocked
         return gate_ok and all(c.passed for c in self.checks)
 
 
-def _verify(repo: Path, before: str | None, plan: Plan, cfg: Config, gate_mode: str) -> _Verification:
-    checks = run_checks(plan.checks, repo, cfg.check_timeout)
+def _verify(repo: Path, before: str | None, plan: Plan, cfg: Config, gate_mode: str,
+            artifacts: frozenset[str]) -> _Verification:
     if before is None:
+        checks = run_checks(plan.checks, repo, cfg.check_timeout)
         return _Verification(None, checks, None, None, "diff gate skipped: not a git repository")
+    # Snapshot the agent's result *before* running checks, then note what the checks wrote.
     after = gitsnap.snapshot(repo)
+    checks = run_checks(plan.checks, repo, cfg.check_timeout)
+    if any(c for c in plan.checks.values()):
+        post = gitsnap.snapshot(repo)
+        artifacts = artifacts | {p for _, p in gitsnap.changed_files(repo, after, post)}
     if gate_mode == "off":
-        return _Verification(None, checks, before, after)
-    diff_text = gitsnap.diff(repo, before, after)
+        return _Verification(None, checks, before, after, artifacts=artifacts)
+    diff_text = gitsnap.diff(repo, before, after, skip=artifacts)
     gate = evaluate_diff(repo, diff_text, test_globs=cfg.test_globs, allowed_paths=cfg.allowed_paths,
                          max_changed_lines=cfg.max_changed_lines,
                          duplicate_min_lines=cfg.duplicate_min_lines,
                          disabled_rules=frozenset(cfg.disabled_rules), exclude_paths=cfg.exclude_paths)
-    return _Verification(gate, checks, before, after)
+    return _Verification(gate, checks, before, after, artifacts=artifacts)
 
 
 def _review(plan: Plan, repo: Path, v: _Verification, settings: RunSettings, lean: bool) -> AgentRun:
@@ -219,7 +227,7 @@ def _review(plan: Plan, repo: Path, v: _Verification, settings: RunSettings, lea
         # Read-only is enforced by construction: the reviewer only ever sees a throwaway copy.
         gitsnap.export_tree(repo, v.after, tmp)
         checks = "; ".join(f"{c.command}: {'pass' if c.passed else 'FAIL'}" for c in v.checks)
-        prompt = review_prompt(plan.task, diff=gitsnap.diff(repo, v.before, v.after, context=3),
+        prompt = review_prompt(plan.task, diff=gitsnap.diff(repo, v.before, v.after, context=3, skip=v.artifacts),
                                gate=render_findings(v.gate.findings) if v.gate else "", checks=checks)
         opts = AgentOptions(review=True, max_turns=min(settings.max_turns, 15), timeout=settings.timeout,
                             model=settings.reviewer_model, lean=lean,
@@ -268,7 +276,8 @@ def execute(plan: Plan, *, dry_run: bool = False, settings: RunSettings | None =
         if not run.success:
             notes.append(f"primary agent failed: {run.error}")
             return False
-        verification = _verify(repo, before, plan, cfg, gate_mode)
+        verification = _verify(repo, before, plan, cfg, gate_mode,
+                               verification.artifacts if verification else frozenset())
         if verification.note:
             notes.append(verification.note)
         return verification.passed(gate_mode)
@@ -343,7 +352,7 @@ def execute(plan: Plan, *, dry_run: bool = False, settings: RunSettings | None =
 def _changed_files(repo: Path, before: str | None, v: _Verification | None) -> list[str]:
     if before is None or v is None or v.after is None:
         return []
-    return [p for _, p in gitsnap.changed_files(repo, before, v.after)]
+    return [p for _, p in gitsnap.changed_files(repo, before, v.after, skip=v.artifacts)]
 
 
 def _repair(plan: Plan, last: AgentRun, v: _Verification, attempt: Callable[[str, AgentOptions], bool],
